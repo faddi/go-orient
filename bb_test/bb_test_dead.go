@@ -27,13 +27,13 @@ func (s *DeadSuite) TearDownSuite(c *C) {
 	s.db.DBClose()
 }
 
-func (s *DeadSuite) TestHW(c *C) {
-	// todo : add some test to get a tree back
-	resChan, err := s.db.CreateCommand("select * from E").ExecuteAsyncQuery()
-
-	c.Assert(err, IsNil)
-	for _ = range resChan {
-		//c.Log(r.Rid)
-	}
-
-}
+//func (s *DeadSuite) TestHW(c *C) {
+//	// todo : add some test to get a tree back
+//	//resChan, err := s.db.CreateCommand("select * from E").ExecuteAsyncQuery()
+//
+//	//c.Assert(err, IsNil)
+//	//for _ = range resChan {
+//	//	//c.Log(r.Rid)
+//	//}
+//
+//}

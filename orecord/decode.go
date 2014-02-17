@@ -9,12 +9,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"encoding/binary"
+	"encoding/base64"
 )
 
 func DecodeToStringMap(data []byte) (map[string]string, error) {
 	// Much of this is taken from https://github.com/gabipetrovay/node-orientdb/blob/master/lib/orientdb/connection/parser.js
 	// needs a lot of cleanup
-	//fmt.Printf("data : %s\n", string(data))
+	fmt.Printf("data : %s\n", string(data))
 
 	res := make(map[string]string)
 	var err error
@@ -44,6 +46,7 @@ func DecodeToStringMap(data []byte) (map[string]string, error) {
 		s_data = s_data[col_index+1:]
 		commaIndex := commaIndex(s_data)
 		value := s_data[:commaIndex]
+		//fmt.Printf("read bytes : %v (%s)\n", value, string(value))
 
 		res[string(field)] = string(value)
 
@@ -149,7 +152,7 @@ func DecodeToMap(data []byte) (map[string]interface{}, error) {
 		unquotedKey, err := strconv.Unquote(key)
 
 		if err != nil {
-			// TODO: fix this
+			// TODO: fix this, just blindly assuming its already unquoted here
 
 			// assume its already unquoted
 			unquotedKey = key
@@ -355,6 +358,13 @@ func decodeValue(strvalue string) (interface{}, error) {
 		}
 	}
 
+
+	// is it a ridbag
+	if v[0] == '%' && v[length-1] == ';' {
+		println("ridbag!")
+		return decodeLinkCollection(strvalue)
+	}
+
 	// numbers and date
 	switch v[len(v)-1] {
 	// byte
@@ -408,5 +418,66 @@ func decodeValue(strvalue string) (interface{}, error) {
 	}
 }
 
-// V@name:"HEY BO DIDDLEY",song_type:"cover",performances:5,type:"song",out:[#9:0,#9:1,#9:2,#9:3,#9:4,#9:5,#9:6],in:[#9:14,#9:158,#9:2684,#9:5837]
-// E@out:#8:1,in:#8:3,label:"followed_by",weight:2
+// decodes special link sets (ridbag and ridtree)
+func decodeLinkCollection(strdata string) (interface{}, error) {
+
+	d, err := base64.StdEncoding.DecodeString(strdata[1:len(strdata) - 1])
+
+	if err != nil {
+		return nil, err
+	}
+
+	buf := bytes.NewBuffer(d)
+	var collection_type int8
+
+	err = binary.Read(buf, binary.BigEndian, &collection_type)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if collection_type == 1 {
+		return decodeRidBag(buf)
+	} else {
+		return decodeTree(buf)
+	}
+}
+
+// decodes rid bag to slice of rid pointers
+func decodeRidBag( buf *bytes.Buffer) ([]*RID, error) {
+
+	var count int32
+	err := binary.Read(buf, binary.BigEndian, &count)
+
+	if err != nil {
+		return nil, err
+	}
+
+	ridSlice := make([]*RID, count, count)
+
+	for i := int32(0); i < count; i++ {
+		var clusterId int16
+		var position int64
+		err = binary.Read(buf, binary.BigEndian, &clusterId)
+
+		if err != nil {
+			return nil, err;
+		}
+
+		err = binary.Read(buf, binary.BigEndian, &position)
+
+		if err != nil {
+			return nil, err;
+		}
+
+		ridSlice[i] = NewRidByExactPosition(clusterId, position)
+	}
+
+	return ridSlice, nil
+}
+
+// not implemented yet
+func decodeTree( buf *bytes.Buffer) (interface{}, error) {
+	fmt.Printf("decode tree not implemented! data : %v \n", buf.Bytes())
+	return "asdf", nil
+}

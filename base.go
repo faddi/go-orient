@@ -12,6 +12,14 @@ import (
 var dolog bool = false
 var debug_log bool = false
 
+func LogInfo(val bool){
+	dolog = val
+}
+
+func LogDebug(val bool){
+	debug_log = val
+}
+
 func log_debug(s string) {
 	if debug_log == true {
 		fmt.Println("DEBUG ->  " + s)
@@ -144,9 +152,9 @@ func (o *orientConnection) beginRequest(opcode int8) {
 
 // debugging help
 func dump_bytes_forever(con *orientConnection) {
-	fmt.Println("reading bytes forever : ")
+	fmt.Println("reading bytes forever : \n")
 	for {
 		b, _ := con.readByte()
-		fmt.Printf("%s", string(b))
+		fmt.Printf("%d (%s)\n",b, string(b))
 	}
 }

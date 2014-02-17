@@ -202,13 +202,13 @@ func (db *Database) readRecords(con *orientConnection) (*CommandResult, error) {
 		return nil, err
 	}
 
-	log_info(fmt.Sprintf("records in collection : %d\n", num_records))
+	log_debug(fmt.Sprintf("records in collection : %d\n", num_records))
 
 	s := make([]*orecord.RawRecord, num_records)
 
 	for i := int32(0); i < num_records; i++ {
 
-		log_info(fmt.Sprintf("reading record %d\n", i))
+		log_debug(fmt.Sprintf("reading record %d", i))
 		m, err := db.readRecord(con)
 
 		if err != nil {
@@ -222,6 +222,7 @@ func (db *Database) readRecords(con *orientConnection) (*CommandResult, error) {
 }
 
 func (db *Database) readRecord(con *orientConnection) (*orecord.RawRecord, error) {
+	log_debug("Start read record")
 
 	// record head
 	// -2 null record
@@ -232,38 +233,46 @@ func (db *Database) readRecord(con *orientConnection) (*orecord.RawRecord, error
 	//record_head, err := con.readShort()
 	//log_info(fmt.Sprintf("record byte : %d (%s)", record_head, string(record_head)))
 	// todo: this is not read just for fun, use this value
-	_, err := con.readShort()
+	record_head, err := con.readShort()
 
 	if err != nil {
 		return nil, err
 	}
+
+	log_debug(fmt.Sprintf("record head byte : %d (%s)", record_head, string(record_head)))
 
 	// record type
 	//record_type, err := u.ReadByte(o)
 	// todo: this is not read just for fun, use this value
-	_, err = con.readByte()
+	record_type, err := con.readByte()
 
 	if err != nil {
 		return nil, err
 	}
+
+	log_debug(fmt.Sprintf("record type byte : %d (%s)", record_type, string(record_type)))
+
 
 	clusterId, err := con.readShort()
 
 	if err != nil {
 		return nil, err
 	}
+	log_debug(fmt.Sprintf("record clusterId : %d", clusterId))
 
 	clusterPosition, err := con.readLong()
 
 	if err != nil {
 		return nil, err
 	}
+	log_debug(fmt.Sprintf("record clusterposition : %d", clusterPosition))
 
 	recordVersion, err := con.readInt()
 
 	if err != nil {
 		return nil, err
 	}
+	log_debug(fmt.Sprintf("record version : %d", recordVersion))
 
 	data, err := con.readBytes()
 
@@ -271,10 +280,10 @@ func (db *Database) readRecord(con *orientConnection) (*orecord.RawRecord, error
 		return nil, err
 	}
 
-	//fmt.Printf("RAW : %s\n", string(data))
+	log_debug(fmt.Sprintf("RAW record data: %s", string(data)))
+	log_debug("End read record")
 
 	// end reading response
-
 	return &orecord.RawRecord{data, recordVersion, &orecord.RID{clusterId, clusterPosition}, RecordTypes.DOCUMENT}, nil
 }
 

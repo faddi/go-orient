@@ -45,8 +45,52 @@ func EncodeValue(v interface{}) string {
 		return fmt.Sprintf("%db", v)
 	case time.Time:
 		return fmt.Sprintf("%da", v.Unix())
+	case *RID:
+		return fmt.Sprintf("%s", v.String())
 	case map[string]interface{}:
 		return fmt.Sprintf("{%s}", EncodeFromMap(v))
+	}
+
+	switch reflect.TypeOf(v).Kind() {
+	case reflect.Slice:
+		slice := reflect.ValueOf(v)
+		var buffer bytes.Buffer
+
+		// ignore if its an empty slice
+		if slice.Len() == 0 {
+			return ""
+		}
+
+		// write the beginning
+		buffer.WriteString("[")
+
+		for i := 0; i < slice.Len(); i++ {
+
+			if slice.Index(i).CanInterface() == false {
+				log.Printf("could not convert value to interface, skipping. Type %v \n", slice.Index(i).Type().String)
+				continue
+			}
+
+			encodedString := EncodeValue(slice.Index(i).Interface())
+
+			if encodedString != "" {
+				// skip values we cant encode
+				if i != 0 {
+					// prefix all values but the first with comma
+					buffer.WriteString(",")
+				}
+			} else {
+				log.Printf("could not encode value, skipping. Value %v, type %v \n", slice.Index(i).Kind(), slice.Index(i).Type().String)
+			}
+
+			// write the value
+			buffer.WriteString(encodedString)
+		}
+
+		// close the array
+		buffer.WriteString("]")
+
+		return buffer.String()
 	}
 
 	log.Printf("Unhandled type for value %v, type %v \n", v, reflect.TypeOf(v).String())
