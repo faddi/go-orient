@@ -62,6 +62,7 @@ type orientConnection struct {
 	*bufio.ReadWriter
 	sessionId      int32
 	server_version int16
+	Release        string
 	tmpBuffer      io.Writer
 }
 

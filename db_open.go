@@ -66,8 +66,8 @@ func (o *orientConnection) DBOpenResponse() (map[string]Cluster, error) {
 
 	// release
 	if o.server_version > 13 {
-		// TODO: handle
-		_, err = o.readString()
+
+		o.Release, err = o.readString()
 
 		if err != nil {
 			return nil, err
