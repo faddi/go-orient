@@ -16,7 +16,7 @@ import (
 func DecodeToStringMap(data []byte) (map[string]string, error) {
 	// Much of this is taken from https://github.com/gabipetrovay/node-orientdb/blob/master/lib/orientdb/connection/parser.js
 	// needs a lot of cleanup
-	fmt.Printf("data : %s\n", string(data))
+	//fmt.Printf("data : %s\n", string(data))
 
 	res := make(map[string]string)
 	var err error

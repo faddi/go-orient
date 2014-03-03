@@ -23,7 +23,7 @@ var _ = Suite(&ServerSuite{})
 
 const (
 	//rootpw     = "9108F0229545C3AFA5DA60F093BB2F6EEAA4F0324D03D58EDEB121D880BC634A"
-	rootpw     = "DB7AFA760158678D5F0C988B395E8AD266911CBCF18C302CB96EE80CAD6384B4"
+	rootpw     = "0D5388D175DA1751171079710307F58798BB9D1833192EE23E903C687A728CBD"
 	testdbname = "testdatabase"
 )
 
@@ -60,7 +60,7 @@ func (s *ServerSuite) TestDBDrop(c *C) {
 	}
 
 	// create a new db
-	err = s.server.DBCreate(name, o.DatabaseTypes.DOCUMENT, o.StorageTypes.LOCAL)
+	err = s.server.DBCreate(name, o.DatabaseTypes.GRAPH, o.StorageTypes.PLOCAL)
 	c.Assert(err, IsNil)
 
 	// verify that it exists
@@ -109,7 +109,6 @@ func (s *DatabaseSuite) SetUpSuite(c *C) {
 	// grab a database connection
 	db, err := o.DBOpen("127.0.0.1:2424", "graph", testdbname, "admin", "admin", "")
 
-	c.Logf("clusters : %v", db.Clusters)
 
 	c.Assert(err, IsNil)
 	//c.Assert(db.SessionId() > 1, Equals, true) connectionmanager
@@ -165,50 +164,37 @@ func (s *DatabaseSuite) TestBatchInsertSelect(c *C) {
 	sql = sql[:len(sql)-1]
 
 	cmd := s.db.CreateCommand(sql)
-	c.Logf("sending insert\n")
 	res, err := cmd.ExecuteCommand()
-	c.Logf("got insert response\n")
 
 	c.Assert(err, IsNil)
 
 	cmd = s.db.CreateCommand("select * from " + testClass)
 
-	c.Logf("sending select\n")
 	res, err = cmd.ExecuteSyncQuery()
-	c.Logf("get select response\n")
-
 	c.Assert(err, IsNil)
 	c.Assert(len(res.Records()), Equals, 100)
 }
 
 func ensureClassExists(c *C, db *o.Database, class string) {
 	if cluster, ok := db.Clusters[class]; ok == true {
-		c.Log("dropping existing class")
 		_, err := db.CreateCommand("drop class " + cluster.Name).ExecuteCommand()
-		c.Log("class dropped")
 
 		c.Assert(err, IsNil)
 	}
 
-	c.Log("creating class " + class)
 	_, err := db.CreateCommand("create class " + class).ExecuteCommand()
-	c.Log("class created")
 
 	c.Assert(err, IsNil)
 }
 
 func ensureExtendedClassExists(c *C, db *o.Database, class, target string) {
 	if cluster, ok := db.Clusters[class]; ok == true {
-		c.Log("dropping existing class")
 		_, err := db.CreateCommand("drop class " + cluster.Name).ExecuteCommand()
-		c.Log("class dropped")
 
 		c.Assert(err, IsNil)
 	}
 
-	c.Log("creating class " + class)
 	_, err := db.CreateCommand("create class " + class + " extends " + target).ExecuteCommand()
-	c.Log("class created")
 
 	c.Assert(err, IsNil)
 }
@@ -249,6 +235,7 @@ func (s *DatabaseSuite) TestInsertSelectWithRels(c *C) {
 
 }
 
+// make sure prefetch sent with a response doesn't fail
 func (s *DatabaseSuite) TestPrefetch(c *C) {
 
 	testClass := "testprefetch"
@@ -259,11 +246,10 @@ func (s *DatabaseSuite) TestPrefetch(c *C) {
 	c.Assert(err, IsNil)
 
 	r := res.Records()[0]
-	c.Logf("%v", r.Rid.String())
 	m, err := r.DecodeToStringMap()
+	c.Assert(m["number"], Equals, "6")
 
 	c.Assert(err, IsNil)
-	c.Logf("%v", m)
 
 	res2, err := s.db.CreateCommand("insert into " + testClass + " (number, stuff) values(1, [" + r.Rid.String() + "])").ExecuteCommand()
 
@@ -276,8 +262,10 @@ func (s *DatabaseSuite) TestPrefetch(c *C) {
 
 	m2, err := r2.DecodeToStringMap()
 
+	c.Assert(m2["number"], Equals, "1")
+	c.Assert(m2["stuff"], Equals, "[" + r.Rid.String() + "]")
+
 	c.Assert(err, IsNil)
-	c.Logf("%v", m2)
 }
 
 func (s *DatabaseSuite) TestInsertDecodeComplexObject(c *C) {
@@ -286,7 +274,7 @@ func (s *DatabaseSuite) TestInsertDecodeComplexObject(c *C) {
 
 	ensureClassExists(c, s.db, testClass)
 
-	res, err := s.db.CreateCommand("insert into " + testClass + "(obj, astring, astringarr) values ({\"data\":[1,2,3,4]}, \"this is a string\", [\"asd\"])").ExecuteCommand()
+	res, err := s.db.CreateCommand("insert into " + testClass + " (obj, astring, astringarr) values ({\"data\":[1,2,3,4]}, \"this is a string\", [\"asd\"])").ExecuteCommand()
 
 	c.Assert(err, IsNil)
 
@@ -294,8 +282,8 @@ func (s *DatabaseSuite) TestInsertDecodeComplexObject(c *C) {
 
 	c.Assert(err, IsNil)
 
-	c.Logf("%v", m)
-	c.Assert(m["class"], Equals, testClass)
+	// as of https://github.com/orientechnologies/orientdb/commit/8d7ad86a2247eee12e0f7745496bb6c8706e8f28 class is no longer set on documents
+	//c.Assert(m["class"], Equals, testClass)
 
 	data := m["obj"].(map[string]interface{})
 	ints := data["data"].([]interface{})
@@ -322,8 +310,6 @@ func (s *DatabaseSuite) TestInsertParametrized(c *C) {
 
 	d, err := res.Records()[0].DecodeToMap()
 
-	c.Logf("%v", d)
-
 	c.Assert(d["one"], Equals, int32(1))
 	c.Assert(d["two"], Equals, int32(2))
 	c.Assert(d["three"], Equals, int32(3))
@@ -345,7 +331,6 @@ func (s *DatabaseSuite) TestInsertParametrized(c *C) {
 //
 //    d, err := res.Records()[0].DecodeToMap()
 //
-//    c.Logf("%v", d)
 //
 //    c.Assert(d["one"], Equals, int32(1))
 //    c.Assert(d["two"], Equals, int32(2))
@@ -405,7 +390,7 @@ func (s *DatabaseSuite) TestCRUDRecord(c *C) {
 
 	c.Assert(err, IsNil)
 	c.Assert(rid, NotNil)
-	c.Assert(record_version, Equals, int32(0))
+	c.Assert(record_version, Equals, int32(1))
 
 	// load it
 	r, err := s.db.RecordLoad(rid.ClusterId, rid.ClusterPosition, "", false, false)
@@ -433,6 +418,7 @@ func (s *DatabaseSuite) TestCRUDRecord(c *C) {
 	c.Assert(r2, IsNil)
 }
 
+// rid bag test
 func (s *DatabaseSuite) TestSpecialLinkset(c *C) {
 	vertex := "testlinkset_vertex"
 	edge := "testlinkset_edge"
@@ -450,7 +436,7 @@ func (s *DatabaseSuite) TestSpecialLinkset(c *C) {
 
 	numLinks := 7
 
-	for i := 0; i<numLinks; i++ {
+	for i := 0; i < numLinks; i++ {
 		r, err := s.db.CreateCommand("create vertex " + vertex + " set type = ?").ExecuteCommand("child")
 		c.Assert(err, IsNil)
 		c.Assert(r.HasRecordsResult(), Equals, true)
@@ -470,27 +456,8 @@ func (s *DatabaseSuite) TestSpecialLinkset(c *C) {
 	c.Assert(res.HasRecordsResult(), Equals, true)
 
 	for _, rec := range res.Records() {
-		m, err := rec.DecodeToMap()
+		_, err := rec.DecodeToMap()
 		c.Assert(err, IsNil)
-		c.Logf("%v\n", m)
 	}
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
